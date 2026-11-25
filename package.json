@@ -1,0 +1,22 @@
+{
+  "name": "near-light-check",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Follows NEAR mainnet the way its light client protocol does: rebuilds each light client block's hash, verifies the block producers' ed25519 approvals, and checks each epoch's producers against the hash the last epoch committed to",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "near-light-check": "src/main.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "node --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}
