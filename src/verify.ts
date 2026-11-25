@@ -1,6 +1,6 @@
 // NEAR's light client protocol, as its specification (the Nomicon) gives it: rebuild a light
 // client block's hash from its parts, check its producers' approvals, and the next producers'
-// hash.
+// hash; and compare one epoch's producers with the next's.
 
 import { createHash, createPublicKey, verify } from "node:crypto";
 
@@ -83,5 +83,32 @@ export function approvals(b: LightClientBlock, producers: Producer[]): Approvals
     result.stake += BigInt(p.stake);
   });
   if (result.stake * 3n <= result.total * 2n) result.problems.push(`approvals carry ${result.stake} of ${result.total} stake, not more than 2/3`);
+  return result;
+}
+
+export interface Changes {
+  joined: string[];
+  left: string[];
+  /** Producers in both epochs. */
+  staying: number;
+  /** Their stake in each epoch, in yoctoNEAR. */
+  stakeBefore: bigint;
+  stakeAfter: bigint;
+}
+
+/** How the producer set moves from one epoch's list to the next's. */
+export function changes(current: Producer[], next: Producer[]): Changes {
+  const before = new Map(current.map((p) => [p.account_id, BigInt(p.stake)]));
+  const after = new Map(next.map((p) => [p.account_id, BigInt(p.stake)]));
+  const result: Changes = { joined: [], left: [], staying: 0, stakeBefore: 0n, stakeAfter: 0n };
+  for (const [account, stake] of after) {
+    if (!before.has(account)) result.joined.push(account);
+    else {
+      result.staying++;
+      result.stakeBefore += before.get(account)!;
+      result.stakeAfter += stake;
+    }
+  }
+  for (const account of before.keys()) if (!after.has(account)) result.left.push(account);
   return result;
 }

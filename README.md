@@ -8,7 +8,9 @@ protocol does, from any public RPC node, with no SDK. For each light client bloc
 2. **verifies its block producers' ed25519 approvals**, and checks they carry more than 2/3 of the
    producers' stake;
 3. **checks each epoch's producers** against the hash the block before committed to, so only the
-   start is taken on trust.
+   start is taken on trust;
+4. **shows how the producers change** into the next epoch: who joins, who leaves, and how the
+   stake of those staying moves.
 
 It exits 1 if a block fails a check.
 
@@ -22,11 +24,15 @@ way.
 The protocol is in NEAR's specification, the Nomicon. `near-light-check` follows it with nothing
 but Node's SHA-256 and ed25519:
 
-- **On 2026-11-25,** from a block two epochs back, two light client blocks reached the newest. In
-  each, 82 to 91 of the 100 producers had approved, holding 88.59% to 96.96% of their stake.
+- **On 2026-11-25,** from a block two epochs back, three light client blocks reached the newest. In
+  each, 80 to 91 of the 100 producers had approved, holding 84.73% to 96.96% of their stake.
 - **Approvals are for the block after:** a producer signs an endorsement of the next block's hash
   at the height two above. The light client block carries that next block's inner hash so the
   signature can be checked.
+- **The 100 seats barely move:** no producer joined or left across the epochs walked, and the
+  stake of those staying grew about 0.03% an epoch: 0.0282% and 0.0261% in the saved replies.
+- **Close to the line:** in one live run, a block had just 66 of its 100 producers approve,
+  holding 67.17% of the stake, above the 2/3 a block needs.
 
 ## Quick start
 
@@ -38,11 +44,14 @@ node src/main.ts
 ```
 
 ```text
-from block 226,058,362, ExHjrxFrzG7Yi2iN3KR1kR62De1aXafDkXXdw7Zt4HXs (trusted): 2 light client blocks to block 226,144,766
+from block 226,059,268, 2qsn6t5AYDTk8TJtxNocKV9FFFZ2DAYjG3BswcKd5EAz (trusted): 3 light client blocks to block 226,145,674
   block 226,122,734, epoch CcaTMZPY: 91 of 100 producers approved, 96.96% of their stake; producers the node's, checked against the block before's next_bp_hash
-  block 226,144,766, epoch C6xhYyeQ: 82 of 100 producers approved, 88.59% of their stake; producers from the block before's next producers
-  newest: H24M8PbhXmRrXWkiq392cRAtLHpCtyzjntz8q9qqGebW
-  check: 2 of 2 blocks hash, link and carry more than 2/3 of their producers' stake
+    next epoch: none join, none leave; the 100 staying hold 0.03% more stake
+  block 226,145,673, epoch C6xhYyeQ: 80 of 100 producers approved, 84.73% of their stake; producers from the block before's next producers
+    next epoch: none join, none leave; the 100 staying hold 0.03% more stake
+  block 226,145,674, epoch C6xhYyeQ: 85 of 100 producers approved, 89.65% of their stake; producers from the block before's next producers
+  newest: EBkFpa4xexkYieXuQzD3G1sQMEjMyjNJ2Lt6kjAWZxnE
+  check: 3 of 3 blocks hash, link and carry more than 2/3 of their producers' stake
 ```
 
 - `--epochs N` starts from the block N epochs back, 43,200 blocks each: 2 by default. The default
@@ -50,7 +59,7 @@ from block 226,058,362, ExHjrxFrzG7Yi2iN3KR1kR62De1aXafDkXXdw7Zt4HXs (trusted): 
 - `--from HASH` starts from a block you trust instead, by its hash.
 - `--rpc URL` picks the node: `https://rpc.mainnet.fastnear.com` by default, or
   `https://rpc.mainnet.near.org`.
-- `--json` prints the start and each step as JSON.
+- `--json` prints the start and each step as JSON, with the full lists of producers who join and leave.
 
 Exit codes: 0 when every block passes, 1 when one fails a check, and 2 when it couldn't check: a
 node without that much history, or bad arguments.
@@ -75,10 +84,20 @@ node without that much history, or bad arguments.
   - each block is in the head's epoch or the next;
   - a block in the next epoch must name the producers of the one after;
   - it stops at the first block that fails, since nothing after it can be trusted.
+- **Compares each epoch's producers with the next's**: accounts that join or leave, and the stake
+  of those in both.
+  - Only for a block that passes every check, so both lists have been checked against their
+    hashes, or, for the start's own epoch, trusted with the start. A block that fails shows no
+    change: the lists it gave prove nothing.
+  - Blocks in the same epoch name the same next producers, so the text shows the change once per
+    epoch; the JSON has it on each block.
 
 ## How it's checked
 
-- **The building blocks:** base58 against known strings, leading zeros included.
+- **The building blocks:**
+  - base58 against known strings, leading zeros included;
+  - the change between two producer lists, and how it reads, on lists worked out by hand, with
+    no one staying and with a change under 0.01% too.
 - **Real blocks:** every reply the light client needed, from a block two epochs back to the
   newest, recorded by [`scripts/fetch-fixtures.ts`](scripts/fetch-fixtures.ts).
   - Each light client block rebuilds to the hash the node knows it by, and following them passes
@@ -87,12 +106,14 @@ node without that much history, or bad arguments.
     more approvals than producers, producers or next producers that don't hash to what was
     committed, a header field, an unrelated epoch, a new epoch without its next producers. Each
     fails, and following stops there.
+  - A block that passes reports the change to its next producers, and one that fails doesn't.
 - **End to end:** the CLI runs against a fake node replaying those replies:
   - it follows from two epochs back, steps past a skipped height, and starts from `--from`;
+  - each epoch's change of producers is shown once;
   - an approval that doesn't verify exits 1;
   - a rate-limited node is asked again;
   - missing history, bad arguments and an unreachable node exit 2.
-- **Mutation testing:** twenty-four deliberate bugs were planted one at a time, and the tests
+- **Mutation testing:** thirty-four deliberate bugs were planted one at a time, and the tests
   caught every one.
 - **Live**, on 2026-11-25: from FastNEAR's and NEAR's public nodes, every block passed.
 
