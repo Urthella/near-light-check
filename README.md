@@ -30,7 +30,9 @@ but Node's SHA-256 and ed25519:
   at the height two above. The light client block carries that next block's inner hash so the
   signature can be checked.
 - **The 100 seats barely move:** no producer joined or left across the epochs walked, and the
-  stake of those staying grew 0.03% an epoch.
+  stake of those staying grew about 0.03% an epoch: 0.0282% and 0.0261% in the saved replies.
+- **Close to the line:** in one live run, a block had just 66 of its 100 producers approve,
+  holding 67.17% of the stake, above the 2/3 a block needs.
 
 ## Quick start
 
@@ -57,7 +59,7 @@ from block 226,059,268, 2qsn6t5AYDTk8TJtxNocKV9FFFZ2DAYjG3BswcKd5EAz (trusted): 
 - `--from HASH` starts from a block you trust instead, by its hash.
 - `--rpc URL` picks the node: `https://rpc.mainnet.fastnear.com` by default, or
   `https://rpc.mainnet.near.org`.
-- `--json` prints the start and each step as JSON.
+- `--json` prints the start and each step as JSON, with the full lists of producers who join and leave.
 
 Exit codes: 0 when every block passes, 1 when one fails a check, and 2 when it couldn't check: a
 node without that much history, or bad arguments.
@@ -82,15 +84,20 @@ node without that much history, or bad arguments.
   - each block is in the head's epoch or the next;
   - a block in the next epoch must name the producers of the one after;
   - it stops at the first block that fails, since nothing after it can be trusted.
-- **Compares each epoch's producers with the next's**, both lists already checked: accounts that
-  join or leave, and the stake of those in both. Blocks in the same epoch name the same next
-  producers, so the change is shown once per epoch.
+- **Compares each epoch's producers with the next's**: accounts that join or leave, and the stake
+  of those in both.
+  - Only for a block that passes every check, so both lists have been checked against their
+    hashes, or, for the start's own epoch, trusted with the start. A block that fails shows no
+    change: the lists it gave prove nothing.
+  - Blocks in the same epoch name the same next producers, so the text shows the change once per
+    epoch; the JSON has it on each block.
 
 ## How it's checked
 
 - **The building blocks:**
   - base58 against known strings, leading zeros included;
-  - the change between two producer lists, and how it reads, on lists worked out by hand.
+  - the change between two producer lists, and how it reads, on lists worked out by hand, with
+    no one staying and with a change under 0.01% too.
 - **Real blocks:** every reply the light client needed, from a block two epochs back to the
   newest, recorded by [`scripts/fetch-fixtures.ts`](scripts/fetch-fixtures.ts).
   - Each light client block rebuilds to the hash the node knows it by, and following them passes
@@ -99,13 +106,14 @@ node without that much history, or bad arguments.
     more approvals than producers, producers or next producers that don't hash to what was
     committed, a header field, an unrelated epoch, a new epoch without its next producers. Each
     fails, and following stops there.
+  - A block that passes reports the change to its next producers, and one that fails doesn't.
 - **End to end:** the CLI runs against a fake node replaying those replies:
   - it follows from two epochs back, steps past a skipped height, and starts from `--from`;
   - each epoch's change of producers is shown once;
   - an approval that doesn't verify exits 1;
   - a rate-limited node is asked again;
   - missing history, bad arguments and an unreachable node exit 2.
-- **Mutation testing:** thirty-one deliberate bugs were planted one at a time, and the tests
+- **Mutation testing:** thirty-four deliberate bugs were planted one at a time, and the tests
   caught every one.
 - **Live**, on 2026-11-25: from FastNEAR's and NEAR's public nodes, every block passed.
 

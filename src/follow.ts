@@ -34,8 +34,11 @@ export interface Step {
   of: number;
   stake: string;
   total: string;
-  /** With the next epoch's producers named and checked: how they differ from this epoch's. */
-  changes?: Changes;
+  /**
+   * When the block passes every check and the next epoch's producers are known: how they differ
+   * from this epoch's, both lists checked against their hashes or trusted with the start.
+   */
+  changes?: Omit<Changes, "stakeBefore" | "stakeAfter"> & { stakeBefore: string; stakeAfter: string };
   problems: string[];
 }
 
@@ -64,8 +67,10 @@ export async function follow(source: Source, start: Head, limit = 50): Promise<S
       if (producersHash(block.next_bps) !== l.next_bp_hash) problems.push("its next producers don't hash to its next_bp_hash");
       else known.set(l.next_epoch_id, block.next_bps);
     }
+    // A list from a block that fails proves nothing, so neither does a change worked out from it.
     const next = known.get(l.next_epoch_id);
-    steps.push({ height: l.height, hash, epoch_id: l.epoch_id, producersFrom, signed: signed.signed, of: signed.of, stake: String(signed.stake), total: String(signed.total), changes: next && changes(producers, next), problems });
+    const moved = !problems.length && next ? changes(producers, next) : undefined;
+    steps.push({ height: l.height, hash, epoch_id: l.epoch_id, producersFrom, signed: signed.signed, of: signed.of, stake: String(signed.stake), total: String(signed.total), changes: moved && { ...moved, stakeBefore: String(moved.stakeBefore), stakeAfter: String(moved.stakeAfter) }, problems });
     // Nothing after a block that fails can be trusted. A block in the head's own epoch is the
     // newest final one: after it the node only has blocks that finalize one by one.
     if (problems.length || l.epoch_id === head.epoch_id) break;

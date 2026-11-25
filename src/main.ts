@@ -28,7 +28,6 @@ async function start(rpc: Rpc, epochs: number, from?: string): Promise<Head> {
   throw new Error(`no block in the ${SKIPPED} heights below ${tip.height - epochs * EPOCH_LENGTH}: the node may not keep that much history`);
 }
 
-
 async function main(): Promise<number> {
   let values;
   try {

@@ -147,3 +147,22 @@ test("the walk stops at the newest final block, not at every block after it", as
   saved.next[steps.at(-1)!.hash] = { ...structuredClone(last), inner_lite: { ...last.inner_lite, height: last.inner_lite.height + 1 } };
   assert.equal((await follow(replay(saved), saved.start)).length, steps.length);
 });
+
+test("each step that passes, with the next producers known, reports the change to them", async () => {
+  const saved = load();
+  const steps = await follow(replay(saved), saved.start);
+  const withNext = steps.filter((s) => s.changes);
+  assert.equal(withNext.length, steps.length, "the fixture's blocks all name their next producers");
+  for (const { changes: c } of withNext) {
+    assert.equal(c!.staying + c!.joined.length, 100, "every next producer either stays or joins");
+    assert.ok(!c!.joined.some((a) => c!.left.includes(a)));
+  }
+});
+
+test("a step that fails carries no change: a list it gave proves nothing", async () => {
+  const { steps } = await broken((b) => {
+    b.approvals_after_next = b.approvals_after_next.map(() => null);
+  });
+  assert.ok(steps.at(-1)!.problems.length);
+  assert.equal(steps.at(-1)!.changes, undefined);
+});
