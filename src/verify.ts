@@ -85,3 +85,29 @@ export function approvals(b: LightClientBlock, producers: Producer[]): Approvals
   if (result.stake * 3n <= result.total * 2n) result.problems.push(`approvals carry ${result.stake} of ${result.total} stake, not more than 2/3`);
   return result;
 }
+
+export interface Changes {
+  joined: string[];
+  left: string[];
+  /** Producers in both epochs, and their stake in each, in yoctoNEAR. */
+  staying: number;
+  stakeBefore: string;
+  stakeAfter: string;
+}
+
+/** How the producer set moves from one epoch's list to the next's. */
+export function changes(current: Producer[], next: Producer[]): Changes {
+  const before = new Map(current.map((p) => [p.account_id, BigInt(p.stake)]));
+  const after = new Map(next.map((p) => [p.account_id, BigInt(p.stake)]));
+  const result = { joined: [] as string[], left: [] as string[], staying: 0, before: 0n, after: 0n };
+  for (const [account, stake] of after) {
+    if (!before.has(account)) result.joined.push(account);
+    else {
+      result.staying++;
+      result.before += before.get(account)!;
+      result.after += stake;
+    }
+  }
+  for (const account of before.keys()) if (!after.has(account)) result.left.push(account);
+  return { joined: result.joined, left: result.left, staying: result.staying, stakeBefore: String(result.before), stakeAfter: String(result.after) };
+}

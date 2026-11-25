@@ -6,7 +6,8 @@
 
 import { parseArgs } from "node:util";
 
-import { type Head, type Step, follow } from "./follow.ts";
+import { type Head, follow } from "./follow.ts";
+import { describe } from "./report.ts";
 import { Rpc } from "./rpc.ts";
 
 const USAGE = "usage: near-light-check [--rpc URL] [--epochs N | --from HASH] [--json]";
@@ -27,21 +28,6 @@ async function start(rpc: Rpc, epochs: number, from?: string): Promise<Head> {
   throw new Error(`no block in the ${SKIPPED} heights below ${tip.height - epochs * EPOCH_LENGTH}: the node may not keep that much history`);
 }
 
-const number = (n: number | string) => BigInt(n).toLocaleString("en-US");
-const percent = (part: string, whole: string) => (Number((BigInt(part) * 10_000n) / BigInt(whole)) / 100).toFixed(2);
-const FROM = { next_bps: "from the block before's next producers", next_bp_hash: "the node's, checked against the block before's next_bp_hash", start: "the node's, trusted along with the start" };
-
-export function describe(head: Head, steps: Step[]): string {
-  const lines = [`from block ${number(head.height)}, ${head.hash} (trusted): ${steps.length} light client blocks${steps.length ? ` to block ${number(steps.at(-1)!.height)}` : ", already the newest"}`];
-  for (const s of steps) {
-    lines.push(`  block ${number(s.height)}, epoch ${s.epoch_id.slice(0, 8)}: ${s.signed} of ${s.of} producers approved, ${percent(s.stake, s.total)}% of their stake; producers ${FROM[s.producersFrom]}`);
-    for (const p of s.problems) lines.push(`    ${p}`);
-  }
-  if (steps.length) lines.push(`  newest: ${steps.at(-1)!.hash}`);
-  const good = steps.filter((s) => !s.problems.length).length;
-  lines.push(`  check: ${good} of ${steps.length} blocks hash, link and carry more than 2/3 of their producers' stake`);
-  return lines.join("\n");
-}
 
 async function main(): Promise<number> {
   let values;

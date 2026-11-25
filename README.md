@@ -8,7 +8,9 @@ protocol does, from any public RPC node, with no SDK. For each light client bloc
 2. **verifies its block producers' ed25519 approvals**, and checks they carry more than 2/3 of the
    producers' stake;
 3. **checks each epoch's producers** against the hash the block before committed to, so only the
-   start is taken on trust.
+   start is taken on trust;
+4. **shows how the producers change** into the next epoch: who joins, who leaves, and how the
+   stake of those staying moves.
 
 It exits 1 if a block fails a check.
 
@@ -22,11 +24,13 @@ way.
 The protocol is in NEAR's specification, the Nomicon. `near-light-check` follows it with nothing
 but Node's SHA-256 and ed25519:
 
-- **On 2026-11-25,** from a block two epochs back, two light client blocks reached the newest. In
-  each, 82 to 91 of the 100 producers had approved, holding 88.59% to 96.96% of their stake.
+- **On 2026-11-25,** from a block two epochs back, three light client blocks reached the newest. In
+  each, 80 to 91 of the 100 producers had approved, holding 84.73% to 96.96% of their stake.
 - **Approvals are for the block after:** a producer signs an endorsement of the next block's hash
   at the height two above. The light client block carries that next block's inner hash so the
   signature can be checked.
+- **The 100 seats barely move:** no producer joined or left across the epochs walked, and the
+  stake of those staying grew 0.03% an epoch.
 
 ## Quick start
 
@@ -38,11 +42,14 @@ node src/main.ts
 ```
 
 ```text
-from block 226,058,362, ExHjrxFrzG7Yi2iN3KR1kR62De1aXafDkXXdw7Zt4HXs (trusted): 2 light client blocks to block 226,144,766
+from block 226,059,268, 2qsn6t5AYDTk8TJtxNocKV9FFFZ2DAYjG3BswcKd5EAz (trusted): 3 light client blocks to block 226,145,674
   block 226,122,734, epoch CcaTMZPY: 91 of 100 producers approved, 96.96% of their stake; producers the node's, checked against the block before's next_bp_hash
-  block 226,144,766, epoch C6xhYyeQ: 82 of 100 producers approved, 88.59% of their stake; producers from the block before's next producers
-  newest: H24M8PbhXmRrXWkiq392cRAtLHpCtyzjntz8q9qqGebW
-  check: 2 of 2 blocks hash, link and carry more than 2/3 of their producers' stake
+    next epoch: none join, none leave; the 100 staying hold 0.03% more stake
+  block 226,145,673, epoch C6xhYyeQ: 80 of 100 producers approved, 84.73% of their stake; producers from the block before's next producers
+    next epoch: none join, none leave; the 100 staying hold 0.03% more stake
+  block 226,145,674, epoch C6xhYyeQ: 85 of 100 producers approved, 89.65% of their stake; producers from the block before's next producers
+  newest: EBkFpa4xexkYieXuQzD3G1sQMEjMyjNJ2Lt6kjAWZxnE
+  check: 3 of 3 blocks hash, link and carry more than 2/3 of their producers' stake
 ```
 
 - `--epochs N` starts from the block N epochs back, 43,200 blocks each: 2 by default. The default
@@ -75,10 +82,15 @@ node without that much history, or bad arguments.
   - each block is in the head's epoch or the next;
   - a block in the next epoch must name the producers of the one after;
   - it stops at the first block that fails, since nothing after it can be trusted.
+- **Compares each epoch's producers with the next's**, both lists already checked: accounts that
+  join or leave, and the stake of those in both. Blocks in the same epoch name the same next
+  producers, so the change is shown once per epoch.
 
 ## How it's checked
 
-- **The building blocks:** base58 against known strings, leading zeros included.
+- **The building blocks:**
+  - base58 against known strings, leading zeros included;
+  - the change between two producer lists, and how it reads, on lists worked out by hand.
 - **Real blocks:** every reply the light client needed, from a block two epochs back to the
   newest, recorded by [`scripts/fetch-fixtures.ts`](scripts/fetch-fixtures.ts).
   - Each light client block rebuilds to the hash the node knows it by, and following them passes
@@ -89,10 +101,11 @@ node without that much history, or bad arguments.
     fails, and following stops there.
 - **End to end:** the CLI runs against a fake node replaying those replies:
   - it follows from two epochs back, steps past a skipped height, and starts from `--from`;
+  - each epoch's change of producers is shown once;
   - an approval that doesn't verify exits 1;
   - a rate-limited node is asked again;
   - missing history, bad arguments and an unreachable node exit 2.
-- **Mutation testing:** twenty-four deliberate bugs were planted one at a time, and the tests
+- **Mutation testing:** thirty-one deliberate bugs were planted one at a time, and the tests
   caught every one.
 - **Live**, on 2026-11-25: from FastNEAR's and NEAR's public nodes, every block passed.
 

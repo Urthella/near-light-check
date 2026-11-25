@@ -3,7 +3,7 @@
 // its next_bps once checked against its next_bp_hash, or the node's list checked against that hash.
 
 import type { LightClientBlock, Producer } from "./rpc.ts";
-import { approvals, blockHash, producersHash } from "./verify.ts";
+import { type Changes, approvals, blockHash, changes, producersHash } from "./verify.ts";
 
 /** Where light client blocks and producer lists come from: the RPC node, or saved replies. */
 export interface Source {
@@ -34,6 +34,8 @@ export interface Step {
   of: number;
   stake: string;
   total: string;
+  /** With the next epoch's producers named and checked: how they differ from this epoch's. */
+  changes?: Changes;
   problems: string[];
 }
 
@@ -62,7 +64,8 @@ export async function follow(source: Source, start: Head, limit = 50): Promise<S
       if (producersHash(block.next_bps) !== l.next_bp_hash) problems.push("its next producers don't hash to its next_bp_hash");
       else known.set(l.next_epoch_id, block.next_bps);
     }
-    steps.push({ height: l.height, hash, epoch_id: l.epoch_id, producersFrom, signed: signed.signed, of: signed.of, stake: String(signed.stake), total: String(signed.total), problems });
+    const next = known.get(l.next_epoch_id);
+    steps.push({ height: l.height, hash, epoch_id: l.epoch_id, producersFrom, signed: signed.signed, of: signed.of, stake: String(signed.stake), total: String(signed.total), changes: next && changes(producers, next), problems });
     // Nothing after a block that fails can be trusted. A block in the head's own epoch is the
     // newest final one: after it the node only has blocks that finalize one by one.
     if (problems.length || l.epoch_id === head.epoch_id) break;

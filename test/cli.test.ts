@@ -68,6 +68,9 @@ test("follows from two epochs back to the newest block, exit 0", async () => {
   assert.match(stdout, /; producers from the block before's next producers\n/);
   assert.match(stdout, new RegExp(`\n  newest: ${saved.hashes.at(-1)}\n`));
   assert.match(stdout, new RegExp(`\n  check: ${n} of ${n} blocks hash, link and carry more than 2/3 of their producers' stake$`, "m"));
+  // One line on the next producers for each epoch walked through, however many of its blocks.
+  const epochs = new Set([...stdout.matchAll(/epoch (\w{8}):/g)].map((m) => m[1]));
+  assert.equal([...stdout.matchAll(/\n    next epoch: \w+ joins?.*, \w+ leaves?.*; the \d+ staying hold .* stake\n/g)].length, epochs.size);
 });
 
 test("a skipped height is stepped past to the block below", async () => {
